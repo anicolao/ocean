@@ -45,9 +45,9 @@ These are proposed Ocean conventions, not documented Upspin features. In particu
 
 Use full hashes in durable machine references. A short version code can be an interactive abbreviation only when it resolves uniquely within the owner's path history; expand and display the full digest before storing it. Ambiguity, missing history, and mismatches fail explicitly. Never silently fall back to the latest version.
 
-For `sha`, define the bytes precisely: the stored blob bytes returned by the byte API, or the materialized output of a recipe, before any client rendering. For encrypted blobs this means ciphertext, not plaintext. Recipe identity remains a separate address. A digest does not prove authorship or grant permission; historical lookup still requires current read authorization.
+For `sha`, define the bytes precisely: the stored blob bytes returned by the byte API, or the materialized output of a recipe, before any client rendering. For encrypted blobs this means ciphertext, not plaintext. Recipe identity remains a separate address. A digest does not prove authorship or grant permission; reading private historical contents requires the corresponding decryption key.
 
-Selectors do not create retention. A historical binding and its target must actually have been preserved. Supporting `version` therefore requires an authorized history lookup and an explicit retention policy beyond the current-binding API. Until those exist, a client must reject the selector as unsupported rather than ignore it.
+Selectors do not create retention. A historical binding and its target must actually have been preserved. Supporting `version` therefore requires a verifiable history lookup and an explicit retention policy beyond the current-binding API. Until those exist, a client must reject the selector as unsupported rather than ignore it.
 
 ## HTTPS and Upspin choose different resolution models
 
@@ -105,7 +105,7 @@ For example, `https://gateway.example/n/<principal-id>/notes/design?sha=<digest>
 
 Retain the first-version path grammar used by the Concord proposal: structured ASCII segments matching `[A-Za-z0-9_-]{1,64}`, at most 16 segments, with case-sensitive comparison. Reject empty segments, dot segments, embedded separators, and alternate percent-encoded spellings at the API boundary. Display labels may be Unicode. These restrictions apply to our PoC paths, not to Upspin names in general.
 
-Keep selectors separate from paths and credentials. Define SHA-256 explicitly, reject duplicate or unknown selector parameters, and do not place bearer grants in URLs. Resolve the selected, verified binding to an immutable target before creating a recipe. Record that immutable target in the recipe, not a mutable name or gateway URL.
+Keep selectors separate from paths and credentials. Define SHA-256 explicitly, reject duplicate or unknown selector parameters, and keep private decryption keys out of ordinary locator URLs. Resolve the selected, verified binding to an immutable target before creating a recipe. Record that immutable target in the recipe, not a mutable name or gateway URL.
 
 The initial API still resolves current bindings; revision selectors remain proposed until historical resolution and retention are specified. This revision changes the comparison and naming direction, not the implementation claims of the identity prototype.
 

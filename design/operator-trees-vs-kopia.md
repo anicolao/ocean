@@ -1,5 +1,7 @@
 # Remote Operator Trees compared with Kopia
 
+> Historical comparison: this evaluates the earlier storage proposal. The current [Concord v1 design](concord-v1.md) uses encrypted streams and recipient keyboxes for readable access, and prepares recovery keys while deferring recovery workflows. Earlier tenant checks and access-grant recommendations below are superseded by that design and the [updated storage contract](remote-operator-trees.md).
+
 Comparison baseline: this document evaluates the [original token-based proposal](https://github.com/anicolao/ocean/blob/bcfd49b13c1d9bd6e57d32736da3cc288379a2b9/design/remote-operator-trees.md). Its findings informed the [revised design](remote-operator-trees.md), [first Concord implementation](concord-v1.md), and [URL naming comparison](urls-vs-upspin-naming.md); statements about deferred identity describe that earlier baseline.
 
 Design comparison, 16 October 2026

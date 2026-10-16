@@ -1,43 +1,44 @@
 # First Concord identity service
 
-Concord lets people create an identity, choose how to present themselves, and vouch for one another. Those identities also let people sign their work, use storage services, and share access to information.
-
-The first implementation follows Alice as she creates an identity, stores a document, meets Bob, and receives an endorsement. Carol later uses that endorsement to help interpret Alice's work.
+Concord lets people create an identity, choose how to present themselves, vouch for one another, and share encrypted event streams. **If you can decrypt a stream, you can read it.**
 
 ## Terminology
 
 | Term | Meaning in this design |
 |---|---|
-| **Identity or principal** | An actor recognized by Concord through its stable identifier and authorized keys. A principal can represent a person, agent, or service. We usually say “identity” in the user flow and “principal” in protocol definitions. |
-| **Owner** | A principal with control over a particular resource, including authority to grant access. Ownership is a role relative to that resource. |
-| **Subject** | The principal whose identity claims a presentation or attestation concerns. |
-| **Attestor** | The principal signing a statement that vouches for specified claims about a subject. |
-| **Recipient** | The principal receiving a disclosure or access grant. |
+| **Identity or principal** | An actor recognized by a stable identifier and its public keys. It can represent a person, agent, or service. |
+| **Owner** | The principal whose signatures establish the authoritative history of a stream. Ownership is a role relative to that stream. |
+| **Event stream** | An ordered, signed history with encrypted contents. A principal can create several streams for different audiences. |
+| **Stream key** | The secret used to encrypt a stream's event contents. |
+| **Keybox** | A stream key encrypted for a particular public encryption key and bound to the stream and key version. |
+| **Recipient** | Someone able to open a stream's keybox using their private encryption key. |
+| **Recovery key** | A separate offline encryption key. Its public half receives a keybox for every owned stream; its private half is saved for future recovery tooling. |
 | **Presentation** | A subject-signed selection of identity claims, an optional avatar, and chosen evidence references. |
-| **Attestation** | An attestor's signed statement about specific claims in an exact presentation. |
-| **Access grant** | An owner's signed authorization for a recipient to perform specified actions on a resource. |
+| **Subject** | The principal whose claims a presentation or attestation concerns. |
+| **Attestor** | The principal signing a statement about selected claims in an exact presentation. |
+| **Attestation** | That signed statement, including what was checked and how. |
 
-Alice and Bob are both principals. Alice owns a document and grants Bob permission to read it. When Bob vouches for Alice, Alice is the subject and Bob is the attestor. Bob controls his attestation and can replace or withdraw it. The same principal can hold several roles, depending on the resource or interaction.
+Alice and Bob are principals. Alice owns a document stream and makes a keybox for Bob. When Bob vouches for Alice, Alice is the subject and Bob is the attestor. Bob controls the history of his own statements.
 
 ## The user flow
 
 ### 1. Create an identity and save something
 
-Alice selects **Create identity**. Concord creates her keys locally, prepares recovery material, and helps her save a recovery copy. Her identity is ready to use.
+Alice selects **Create identity**. Concord creates her operational signing and encryption keys locally, plus a separate recovery encryption key. It helps her export the recovery private key and verify the saved copy before removing it from the everyday client.
 
-She chooses a storage provider or connects her own server. The client shows the provider's capacity and terms, configures access, and lets her save her first document. Alice can return to it from another device she authorizes.
+Alice starts a signed chain of events under her new identity. She chooses a storage provider or connects her own server and saves her first document. Her client encrypts the document stream and creates keyboxes for her operational encryption key and her recovery public key.
 
 ### 2. Choose how to present yourself
 
-Alice creates a presentation with the display name **Mickey Mouse** and a drawing for an avatar. She previews a card showing exactly what someone else will see, then selects **Show QR code**.
+Alice creates a presentation with the display name **Mickey Mouse** and a drawing for an avatar. She previews exactly what someone else will see, then selects **Show QR code**.
 
-She can also create a more detailed presentation containing her legal name, address, and selected supporting documents. Each presentation has its own audience and disclosure choices. Alice can use different presentations for different situations; they remain associated with the same underlying identity.
+She can also create a presentation with her legal name, address, and selected supporting documents. Each presentation has its own audience. Both refer to the same underlying identity.
 
-The QR code carries a small presentation or a reference to it. Large attachments are shared separately with the recipients Alice chooses.
+A QR code carries a small presentation or a reference to it. For a private exchange, Alice shares the relevant stream with the intended recipient using their public key. Larger evidence documents can live in a separate stream with a narrower audience.
 
 ### 3. Ask someone to vouch for you
 
-Bob scans Alice's code. Concord shows her presentation and offers **Vouch for this identity**. Bob chooses the claims he wants to affirm and reviews the statement he will sign.
+Bob scans Alice's code. Concord shows her presentation and offers **Vouch for this identity**. Bob chooses the claims to affirm and reviews the statement he will sign.
 
 For the Mickey Mouse presentation, he might write:
 
@@ -47,89 +48,96 @@ For the detailed presentation, he might write:
 
 > I inspected the presented passport and driver's licence, compared the holder to their photos, and checked that the utility bill matches the claimed address.
 
-Bob records how he checked the claims. When confirming control of the identity, his client can ask Alice's device to sign a fresh challenge. He then signs the statement, creating an **attestation** attached to that exact presentation.
+Bob records how he checked the claims. To confirm current key control, his client can ask Alice's device to sign a fresh challenge. He signs an attestation attached to the exact presentation he reviewed.
 
 ### 4. Choose what to share
 
-Alice and Bob review the attestation and its intended audience. Alice might show Bob the supporting documents privately and share the resulting endorsement with a wider audience. Bob chooses the precise statement he is willing to stand behind.
+Alice might show Bob her supporting documents privately and share his resulting endorsement more widely. The preview lists the presentation, evidence, statement, and intended audience.
 
-The sharing preview lists the claims, evidence, attestation, and recipients separately. Alice can publish the agreed presentation and endorsement alongside her work, or share them with particular people.
+Alice selects a stream and Bob's identity. Concord shows his public-key fingerprint and where that key came from. She checks it through their existing contact or QR exchange, then selects **Share**.
+
+Her client encrypts the stream key to Bob's public encryption key. Bob receives the keybox and stream locator, fetches the encrypted events, and opens them locally. The same key opens retained history and future events encrypted with it.
+
+Alice chooses the audience by choosing which stream to share. To share just one document or a computation result, she puts that material in a separate stream.
 
 ### 5. Interpret someone else's identity
 
-Carol opens something Alice has published and follows its identity attribution. She sees Alice's chosen presentation, Bob's statement, what Bob says he checked, when he signed it, and the source and freshness of its status.
+Carol follows the identity attribution on Alice's published work. She sees Alice's chosen presentation, Bob's statement, what he says he checked, when he signed it, and the source and freshness of its status.
 
-Carol can inspect Bob's identity and disclosed attestations as well. She decides how much weight to place on his endorsement, based on her own relationships, the evidence available, and his record. The same presentation can attract several attestations, each making its own claim.
+Carol can inspect Bob's disclosed identity and attestations too. She decides how much weight to place on his endorsement using her own relationships, the evidence, and his record. A pseudonymous identity with a long history and a documented legal identity give her different information.
 
-A pseudonymous identity with a long history of thoughtful endorsements and a documented legal identity give Carol different information. Concord presents the statements and their provenance so she can interpret both Alice and the people vouching for her.
+### 6. Keep statements current
 
-### 6. Keep presentations and endorsements current
+A changed presentation receives a new version. Bob can review it and issue a new attestation; his earlier statement stays attached to the version he saw.
 
-When Alice changes a presentation, Concord creates a new version. Bob can review it and issue a new attestation. His earlier statement remains attached to the version he originally saw.
+Bob can set an expiry, replace his statement, or publish a signed withdrawal in his event history. Carol sees these changes and when their status was last checked.
 
-Bob can set an expiry, replace a statement, or publish a signed withdrawal. Carol's view shows these changes and when their status was last checked. The history keeps the statements attributable to their authors.
+### 7. Keep recovery material safely
 
-### 7. Share access and manage devices
+Alice keeps her recovery private key separately from her everyday key. Each new stream includes a keybox for its public half. Concord v1 prepares and verifies this material during setup; restoring identity control and enrolling replacement devices belong to future recovery work.
 
-To let Bob read a private document or run a particular computation, Alice selects the resource, recipient, and permitted action, then signs an access grant. The sharing interface handles these permissions separately from the identity card and its endorsements.
-
-Alice can add a phone, retire an old computer, rotate her controller key, or restore control using her recovery material. Her underlying identity remains the same. She can also move her records and names to another provider through a signed service update.
-
-## What the first implementation contains
-
-One deployment can host the following components, each with a distinct interface:
+## Components
 
 | Component | Responsibility |
 |---|---|
-| Identity client | Creates keys, manages devices and recovery, signs records |
-| Identity record service | Publishes the identity's key history and current service locations |
-| Presentation and attestation service | Stores disclosed identity cards, endorsements, replacements, and withdrawals |
+| Identity client | Creates operational keys, exports a separate recovery key, and signs records |
+| Identity record service | Publishes genesis records, signed public keys, and service locations |
+| Stream client | Encrypts events, verifies histories, and makes and opens keyboxes |
+| Presentation and attestation tools | Build identity cards and statements for chosen audiences |
 | Naming service | Resolves owner-qualified names to signed bindings |
-| Authority service | Checks device permissions and resource grants |
-| Storage and evaluation service | Retains data and carries out authorized operations |
+| Storage service | Retains encrypted events, keyboxes, and referenced encrypted objects |
+| Evaluation service | Runs recipes over data deliberately shared with its own principal |
 
-A person can create an identity locally and connect to a self-service provider or operate their own deployment. Providers manage their own capacity, billing, and resource policies. The client's signing keys stay under the person's control.
+People create identities locally and use self-service providers or their own deployments. Providers manage capacity, billing, and resource usage. Each principal controls its own event history and separate recovery material.
 
-## Identity records and presentations
+## Identity and stream records
 
-The stable principal ID is a fingerprint of a **genesis record** containing the initial controller public key, an offline recovery public key, a random nonce, and a format version. Operational updates form a signed sequence beneath that identity.
+The stable principal ID is a fingerprint of a **genesis record** containing the initial signing public key, encryption public key, recovery encryption public key, random nonce, and format version.
 
-A public **control profile** contains active device certificates and service descriptors. Each descriptor identifies a service's role, principal, and HTTPS endpoint. Clients retain verified history and follow signed updates when service locations change.
+Public identity records supply keys and signed service locations. Private activity lives in encrypted streams. Each stream has an owner-signed header, random identifier, random encryption key, and ordered chain of signed encrypted events. Sequence numbers and previous-event hashes let clients check the history.
 
-A **presentation** is an immutable, subject-signed record containing the principal ID, presentation ID, selected claims, optional avatar, creation time, and selected evidence references. Display names belong to presentations; local address-book labels are another way people recognize their contacts.
+The owner creates an operational keybox and a recovery keybox at stream creation. Sharing adds a keybox for the recipient's verified public key. These signed records bind the wrapped key to the stream, key version, and recipient key fingerprint. They can be delivered directly or stored alongside the encrypted stream.
 
-## Attestations
+Large attachments use their own content keys, carried inside encrypted events. Sharing a stream therefore also shares the referenced attachment keys it contains.
 
-An attestation records an attributable statement about selected claims in one presentation. It contains:
+## Presentations and attestations
 
-- The attestor and subject identities, attestation ID, and signing-key reference.
-- The presentation digest and the specific claims being affirmed.
-- The statement, verification method, and any disclosed evidence commitments.
-- Issue time, optional expiry, and an optional reference to a statement it replaces.
+A presentation is an immutable, subject-signed record containing the principal ID, presentation ID, selected claims, optional avatar, creation time, and evidence references.
 
-Controllers or devices with an attestation-signing role can issue these records. Clients verify the signer and show the statement in context. Signed withdrawals and replacements refer back to the original record.
+An attestation contains the attestor and subject IDs, signing-key reference, presentation digest, exact claims affirmed, statement, verification method, disclosed evidence commitments, issue time, optional expiry, and optional replacement reference.
 
-Presentations, evidence, and attestations have explicit disclosure choices. Optional evidence commitments allow a later recipient to check that disclosed evidence matches what was committed earlier. Private exchanges in the first prototype use an explicitly chosen channel; the service stores the records the participants choose to disclose.
+Each attestor signs their own statements. Private presentations, evidence, and attestations travel in streams shared through keyboxes. Explicit public disclosure publishes the selected signed records. Evidence can remain private while the statement describing its inspection is public.
 
-## Names, permissions, and persistence
+## Reading, authorship, and retention
 
-A logical name combines an owner identity with path segments. A signed binding records its immutable target and update history. The [naming design](urls-vs-upspin-naming.md) describes how URLs can carry that logical name and how clients resolve it to service endpoints.
+The ability to decrypt is permission to read. Storage serves encrypted bytes; recipients decrypt locally. Sharing needs the recipient's public key and a way to deliver the locator and keybox.
 
-An access grant identifies its issuer, recipient, service, exact resource, permitted actions, and expiry. The first grants are direct owner-to-recipient grants. Recipe grants identify the recipe and the dependencies the service may use. The owner retains the required inputs, and the recipient may retain an authorized result under their own storage quota.
+The owner's signing key establishes which events belong to the authoritative stream. Readers verify that history and can respond through their own signed streams. Decryption and authorship have distinct cryptographic purposes.
 
-The service checks current authority when accepting work and publishing its result. It preserves identity checkpoints, revocations, attestation withdrawals, grant state, and pin ownership as durable control records.
+A logical name combines an owner identity with path segments. Its signed binding records an immutable target and update history. Private bindings travel inside encrypted streams. The [naming design](urls-vs-upspin-naming.md) describes URL syntax and endpoint resolution.
+
+Retention is a service commitment: a principal pays for or supplies storage and pins encrypted objects. Keyboxes provide readable access; providers manage disk space and computing resources.
+
+## Computation over shared data
+
+An evaluator is another principal with a public encryption key. Alice makes a keybox for a dedicated input stream containing the recipe and necessary inputs. The evaluator decrypts it, runs the fixed operators, and encrypts the result into a job output stream.
+
+Alice supplies the output stream header and keyboxes for herself, her recovery key, and the evaluator. The evaluator returns a signed result artifact; Alice verifies and appends it to her authoritative output stream. Alice can then share that stream with Bob. Selecting a dedicated input stream makes the information disclosed to the evaluator concrete.
+
+Alice can also decrypt and evaluate on her own device. The [Operator Trees design](remote-operator-trees.md) describes the byte operators and retention contract.
 
 ## Acceptance scenarios
 
-1. A fresh client creates an identity, saves recovery material, configures storage, and retains a first document. Demonstrate both a self-service provider and a self-hosted deployment.
-2. Alice presents a Mickey Mouse name and drawing by QR code. Bob chooses a statement, signs it, and Carol inspects both the statement and Bob's identity.
-3. Using synthetic document fixtures, Alice shows Bob a legal-name and address presentation with supporting evidence. The sharing preview publishes their chosen summary and audience.
-4. Alice updates her presentation. Bob signs the new version, then replaces or withdraws an earlier endorsement. Carol can inspect the history and status freshness.
-5. Alice gives Bob an exact recipe-evaluation grant. He receives the expected `CDEF` result, with the permitted actions and retained inputs visible in the record.
-6. Alice adds and retires devices, rotates keys, and restores control from recovery material. Her principal ID stays constant through each operation.
-7. Alice moves her naming service. Bob follows the signed service update and resolves the same logical name.
-8. Restart the service and verify that identity history, attestation status, permissions, and retained data remain available and consistent.
+1. Create an identity locally, export and verify recovery material, then retain a first encrypted stream through self-service storage or a self-hosted deployment.
+2. Alice presents a Mickey Mouse name and drawing. Bob signs his chosen statement; Carol inspects the statement and Bob's identity.
+3. With synthetic documents, Alice shares evidence privately with Bob and publishes their chosen presentation and endorsement.
+4. Update a presentation, issue a new endorsement, and withdraw an earlier statement while preserving verifiable history.
+5. Alice makes a keybox for Bob. He reads retained events and a later event. Carol obtains the same ciphertext and Bob's keybox but cannot decrypt either.
+6. Share a dedicated input stream with an evaluator, obtain an encrypted result containing `CDEF`, and share that result stream with Bob.
+7. Verify that a saved recovery private key opens a fixture keybox and that every newly owned stream includes a recovery keybox.
+8. Move a service through a signed locator update and verify the same stream history at the new provider.
+9. Restart storage and verify histories, keyboxes, attestation status, encrypted objects, and retention commitments.
 
-The [protocol and security requirements](concord-protocol-requirements.md) specify validation rules, failure behavior, trust boundaries, and tests for the implementation.
+The [protocol requirements](concord-protocol-requirements.md) specify validation, limitations, and future work.
 
-[Remote Operator Trees design](remote-operator-trees.md) · [Naming design](urls-vs-upspin-naming.md)
+[Remote Operator Trees](remote-operator-trees.md) · [Naming design](urls-vs-upspin-naming.md)
