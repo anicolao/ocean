@@ -4,6 +4,21 @@ Concord lets people create an identity, choose how to present themselves, and vo
 
 The first implementation follows Alice as she creates an identity, stores a document, meets Bob, and receives an endorsement. Carol later uses that endorsement to help interpret Alice's work.
 
+## Terminology
+
+| Term | Meaning in this design |
+|---|---|
+| **Identity or principal** | An actor recognized by Concord through its stable identifier and authorized keys. A principal can represent a person, agent, or service. We usually say “identity” in the user flow and “principal” in protocol definitions. |
+| **Owner** | A principal with control over a particular resource, including authority to grant access. Ownership is a role relative to that resource. |
+| **Subject** | The principal whose identity claims a presentation or attestation concerns. |
+| **Attestor** | The principal signing a statement that vouches for specified claims about a subject. |
+| **Recipient** | The principal receiving a disclosure or access grant. |
+| **Presentation** | A subject-signed selection of identity claims, an optional avatar, and chosen evidence references. |
+| **Attestation** | An attestor's signed statement about specific claims in an exact presentation. |
+| **Access grant** | An owner's signed authorization for a recipient to perform specified actions on a resource. |
+
+Alice and Bob are both principals. Alice owns a document and grants Bob permission to read it. When Bob vouches for Alice, Alice is the subject and Bob is the attestor. Bob controls his attestation and can replace or withdraw it. The same principal can hold several roles, depending on the resource or interaction.
+
 ## The user flow
 
 ### 1. Create an identity and save something
