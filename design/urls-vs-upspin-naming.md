@@ -1,76 +1,114 @@
-# URLs compared with Upspin naming
+# URL syntax and Upspin naming
 
-Design comparison and proposed Ocean naming policy, 16 October 2026
+Revised comparison and proposed Ocean naming policy, 16 October 2026
 
-**Use HTTPS URLs to reach services and share ordinary links; use Concord identities to establish who controls names and objects.** Upspin's useful contribution is the owner-rooted namespace and discovery protocol, rather than a particular spelling of paths. We can adopt that separation without requiring a new browser URL scheme.
+**An Upspin name can be expressed as a URL without losing its naming semantics.** The useful comparison is between URL syntax, the resolution rules selected by a scheme, and the transport used after resolution. Treating “URLs” and “Upspin names” as competing categories obscures this distinction.
 
-## Compare the protocols, not just the strings
+## An Upspin name in URL form
 
-“URL” covers many schemes. This comparison concerns ordinary HTTPS URLs, such as `https://files.example/alice/notes/design`, versus an Upspin path such as `alice@example.com/notes/design`. URI syntax permits identifiers for abstract resources; a URL need not identify a physical machine or disk file. Its semantics depend on its scheme and service. [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986)
+Consider these two spellings:
 
-Upspin resolves the user prefix through a key service, then resolves the path through that user's directory service, which supplies storage locations. The directory and store can live separately. [Upspin overview](https://upspin.io/doc/overview.html)
+```text
+alice@example.com/notes/design
+upspin://alice@example.com/notes/design
+```
 
-For HTTPS, the origin is defined by scheme, host, and port. HTTP supplies retrieval, authentication hooks, conditional requests, and redirects, but does not prescribe a personal directory or person-to-key mapping. [HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110.html)
+The second can mean exactly the first, with `upspin:` telling the reader which naming and resolution rules apply. This is a proposed representation for this discussion, not a claim that existing Upspin clients implement this spelling or its query extensions.
 
-| Question | Ordinary HTTPS URL | Upspin path |
+The mapping can be lossless with a specified encoding and parser. One detail matters: a generic URI parser separates `alice` as user information and `example.com` as host. An Upspin-aware handler must reconstruct the owner name and must not interpret Alice as HTTP login information or automatically connect to that domain. Escaping and normalization must preserve Upspin's name semantics. [URI authority and scheme syntax](https://www.rfc-editor.org/rfc/rfc3986.html#section-3)
+
+That parsing detail does not invalidate the representation. It means that generic parsing supplies components, while the scheme supplies their meaning. A different spelling could avoid user-information handling if library compatibility warrants it; that is an encoding decision, not a different namespace.
+
+## What URL syntax adds
+
+A scheme tag makes the naming system explicit. Query syntax also provides a place for useful selectors:
+
+```text
+upspin://alice@example.com/notes/design?version=<shortcode-hash>
+upspin://alice@example.com/notes/design?sha=<sha-hash>
+```
+
+The angle-bracket values are placeholders. These could identify a particular revision or require particular bytes while retaining a recognizable owner and path. They are not inherent meanings of `version` or `sha`: the scheme must define them. URI query syntax does not itself prescribe key/value parameters or revision lookup. [URI query component](https://www.rfc-editor.org/rfc/rfc3986.html#section-3.4)
+
+This is an extension to bare path naming, not an ability exclusive to HTTPS. The same selector convention could be carried in an Upspin-style URL, a Concord URL, or an HTTPS gateway URL.
+
+### Proposed selector semantics
+
+| Form | Proposed meaning | Required behavior |
 |---|---|---|
-| What anchors resolution? | A web origin and that service's routing | A user record and that user's directory |
-| What does the path mean? | Defined by the application | A hierarchical item name in a user's tree |
-| Where are bytes stored? | Hidden behind the service's response | Discovered through directory metadata |
-| What proves a person's authority? | Additional application protocol required | User keys and Upspin authorization mechanisms |
-| Does the name fix the bytes? | Only with an additional immutable-content convention | Not for an ordinary mutable path |
+| No selector | Resolve the current authorized binding at this owner and path | Verify current binding and authority |
+| `version=<hash>` | Resolve an exact historical signed binding record for this owner and path | Verify its record digest, signature, and historical signing authority |
+| `sha=<digest>` | Resolve the current binding, but require its resulting blob bytes to match this SHA-256 digest | Fail if the current binding produces different bytes |
+| Both | Resolve that historical binding and verify its resulting bytes | Both constraints must hold |
 
-These mappings summarize the protocols above. Neither string alone is a cryptographic identity, a retention promise, or permission to read.
+These are proposed Ocean conventions, not documented Upspin features. In particular, `sha` alone is an integrity constraint here, not a promise to search every prior version. A different policy could use the hash to select historical content, but would need an explicit lookup and ownership contract.
 
-## Pros of HTTPS URLs
+Use full hashes in durable machine references. A short version code can be an interactive abbreviation only when it resolves uniquely within the owner's path history; expand and display the full digest before storing it. Ambiguity, missing history, and mismatches fail explicitly. Never silently fall back to the latest version.
 
-1. **They fit existing interaction.** A person can use a normal web link and a service can present a document, sign-in flow, or download. Ocean can offer a browser entry point while a richer client verifies signed records.
-2. **Hosting can change without changing the URL.** A domain can remain stable while the deployment behind it changes. Stable URLs are a service-design commitment, not something the web architecture forbids. [W3C guidance on persistent URIs](https://www.w3.org/Provider/Style/URI)
-3. **One transport can carry several models.** An HTTPS response can be bytes, a signed name binding, or a recipe. Ocean need not invent a transport to introduce its identity model.
-4. **Useful concurrency mechanisms exist.** Conditional requests and entity tags can protect updates against stale writers. These complement signature validation; they do not establish who was authorized to sign. [HTTP conditional requests](https://www.rfc-editor.org/rfc/rfc9110.html#name-conditional-requests)
+For `sha`, define the bytes precisely: the stored blob bytes returned by the byte API, or the materialized output of a recipe, before any client rendering. For encrypted blobs this means ciphertext, not plaintext. Recipe identity remains a separate address. A digest does not prove authorship or grant permission; historical lookup still requires current read authorization.
 
-## Cons of relying on HTTPS URLs as the only identity
+Selectors do not create retention. A historical binding and its target must actually have been preserved. Supporting `version` therefore requires an authorized history lookup and an explicit retention policy beyond the current-binding API. Until those exist, a client must reject the selector as unsupported rather than ignore it.
 
-1. **Changing the origin changes the ordinary address.** Moving from a provider-owned domain to another provider can break links unless the old endpoint continues to redirect or another resolution layer exists. Control of one's own domain helps, but domain continuity is still an operational obligation.
-2. **HTTPS authenticates the origin, not automatically Alice.** A service must add a binding between a human or cryptographic principal and a resource. A provider account or path component named `alice` does not supply provider-independent ownership.
-3. **Naming and authority vary between services.** Read access, editing rights, public links, and account recovery are application decisions. Cross-provider use requires a common protocol in addition to URLs.
-4. **Links can expose more than intended.** Names and queries may reveal sensitive context; an application that puts a bearer credential into a link turns disclosure of that link into an authority leak. Ocean should use recipient-bound grants, not secret-bearing URLs.
+## HTTPS and Upspin choose different resolution models
 
-These are consequences for our design, not claims that HTTPS applications cannot implement stronger identity or privacy.
+An HTTPS URL selects HTTP semantics over a secured connection and an origin authority. With a domain-name host, normal resolution relies on DNS; HTTPS can also address an IP literal, so DNS is not mandatory for every URL. Proxies and alternative routing can affect connection establishment without changing the origin's identity. [HTTPS scheme and authoritative access](https://www.rfc-editor.org/rfc/rfc9110.html#name-https-uri-scheme)
 
-## Pros of Upspin naming
+An Upspin name starts with a user identity. The client discovers that user's directory through the key service, asks the directory for the named item, and obtains storage locations. The name itself does not tell the client to contact the email-shaped suffix as a DNS host. [Upspin architecture](https://upspin.io/doc/arch.html)
 
-1. **Names start with the owner.** The user namespace is separated from the directory and storage endpoints. Moving infrastructure can preserve the logical path if discovery records and data are migrated correctly.
-2. **Discovery is specified.** Clients agree how to find a user's directory and then the stored content, rather than integrating a different naming API for every provider. [Upspin architecture](https://upspin.io/doc/arch.html)
-3. **Sharing has common semantics.** Upspin defines named rights and groups through `Access` files. A client has a consistent model for asking which operation is allowed. [Upspin access control](https://upspin.io/doc/access_control.html)
-4. **The namespace can expose more than static files.** Upspin describes services such as a camera image available through a name. A common name interface need not limit implementations to disk storage. [Upspin overview](https://upspin.io/doc/overview.html#examples)
+Upspin nevertheless has protocols and infrastructure. Its interfaces contain service endpoints with transport information, and its security documentation describes HTTPS RPC. Those discovered endpoints may use DNS. The distinction is that the logical name does not fix the network protocol or server address; it is not a claim that deployed Upspin operates without either. [Upspin endpoint interface](https://pkg.go.dev/upspin.io/upspin#Endpoint) · [Upspin server management](https://upspin.io/doc/security.html#server-management)
 
-## Cons of adopting Upspin naming unchanged
-
-1. **An email-shaped name still needs a trust system.** The documented ecosystem uses a central key service. That is useful coordination, but differs from Concord's goal of identities established through locally controlled keys and direct introductions. [Upspin key management](https://upspin.io/doc/security.html#key-management)
-2. **A path does not survive every object change.** A rename changes a path. Ocean needs an enduring object identifier if an object should keep its identity through renames and multiple views.
-3. **The directory sees naming metadata.** Upspin protects content with client-side encryption, while its directory sees paths and sharing information. Owner-rooted naming is not itself metadata confidentiality. [Upspin security](https://upspin.io/doc/security.html)
-4. **A new resolution protocol has a deployment cost.** Clients must understand it, or use a gateway. A gateway's URL is a way to reach the namespace, not necessarily the namespace's authoritative identity.
-
-## Proposed first-version naming rules
-
-Keep four different things explicit:
-
-| Thing | Proposed representation | Changes when |
+| Layer | HTTPS URL | Proposed Upspin URL representation |
 |---|---|---|
-| Principal | Concord genesis-record fingerprint | A genuinely new identity is created |
-| Logical name | Structured pair of principal ID and path segments | The owner renames the binding |
-| Immutable target | Existing blob or recipe address | Its bytes or recipe change |
-| Locator | HTTPS service URL from a signed profile | The provider or deployment changes |
+| Syntax | Scheme, authority, path, optional query | The same general URL structure |
+| Resolution anchor | Web origin | Owner identity and directory discovery |
+| Domain-looking component | Ordinarily identifies the origin host | Part of the Upspin user name |
+| Transport selected by the scheme | HTTP over a secured connection | Upspin resolution; discovered endpoints supply transport |
+| Revision or hash selectors | Application-defined | Scheme-defined extension, if adopted |
+| Permission | Application authorization | Upspin authorization; URL spelling adds no permission |
 
-Friendly labels such as “Alice” are local contact aliases, never globally authoritative identifiers. In the first version, names bind directly to immutable targets; a separate persistent object-history layer remains future work. Do not imply that a mutable name already implements Ocean's enduring objects.
+## Pros and cons of each resolution model
 
-An ordinary link can look like `https://gateway.example/n/<principal-id>/notes/design`. Its host selects a gateway. A Concord client verifies the owner identity and signed name binding before accepting its target. A browser without that verifier relies on the gateway's presentation and HTTPS security; it does not gain provider-independent verification merely by opening the link. No new URI scheme is required in this PoC.
+### HTTPS origin-based resolution
 
-For the first path grammar, use structured ASCII segments matching `[A-Za-z0-9_-]{1,64}`, at most 16 segments, with case-sensitive comparison. Reject empty segments, dot segments, embedded separators, and alternate percent-encoded spellings at the API boundary. Display labels may be Unicode, but are not lookup keys. This intentionally small grammar avoids promising Unicode equivalence or filesystem semantics before we define them.
+1. **Pro: broad interoperability.** Browsers and web tooling already know how to open an HTTPS link. A custom naming scheme needs a handler or gateway.
+2. **Pro: a directly usable access mechanism.** The identifier names an origin and specifies how to interact with it. Applications can still return signed records or immutable content.
+3. **Pro: names can outlive deployments.** Keeping the same domain and routing allows the infrastructure behind a URL to change. Persistent naming is possible with deliberate stewardship. [W3C guidance on stable URIs](https://www.w3.org/Provider/Style/URI)
+4. **Con: continuity depends on origin control.** A provider-owned hostname is a dependency. Changing that hostname usually needs redirects or another discovery mechanism to preserve existing references.
+5. **Con: personal identity is additional machinery.** DNS and HTTPS authentication do not, by themselves, establish that a resource belongs to a particular Concord principal.
 
-Resolve a logical name to a verified immutable target before creating a recipe. Record that target, not the mutable name or gateway URL, in the recipe. Provider migration changes the signed service-location record; it does not rewrite the principal or recipe addresses. Existing gateway links can still fail when that gateway disappears, so clients also retain the logical name and verified discovery information.
+### Upspin owner-based resolution
 
-**Decision:** adopt Upspin's separation of owner, directory, and storage; keep HTTPS as the transport and ordinary link format; make Concord's signed identity and name records the authority. The additional verification and discovery work is the price of independence from a single host.
+1. **Pro: storage location is indirect.** A stable owner/path can resolve to different directory or storage endpoints without rewriting the logical name.
+2. **Pro: one naming contract can span providers.** The client follows a common discovery model instead of treating each provider's URL layout as the ownership model. [Upspin overview](https://upspin.io/doc/overview.html)
+3. **Pro: URL representation preserves these properties.** Adding `upspin:` and well-defined query selectors need not bind the name to HTTP, a particular host, or DNS resolution of the owner's suffix.
+4. **Con: discovery requires its own trust and availability model.** The documented Upspin ecosystem uses a central key service. Replacing DNS-based origin discovery does not eliminate infrastructure dependencies. [Upspin key management](https://upspin.io/doc/security.html#key-management)
+5. **Con: interoperability needs integration.** A syntactically valid URL does not make a browser understand its scheme. Handler registration, escaping, normalization, and gateway behavior still need specification.
+6. **Con: paths and selectors do not solve object continuity alone.** Renames change paths. History must be retained, and an immutable content hash is different from an enduring object identity.
+
+Neither model wins merely by using URL punctuation. The important choice is what anchors resolution and who can change the binding.
+
+## Implications for the first Concord design
+
+Keep these layers separate:
+
+| Thing | First-version representation |
+|---|---|
+| Principal | Concord genesis-record fingerprint |
+| Logical name | Principal ID and structured path segments |
+| Selection constraint | Optional version record digest and/or expected output digest |
+| Immutable target | Blob or recipe address |
+| Service locator | Signed service descriptor containing an HTTPS endpoint |
+
+A Concord-aware URL could encode the logical name and selectors, just as the illustrative `upspin:` URL does. The exact Concord scheme spelling is undecided. HTTPS remains the initial wire transport and can provide a browser gateway; it need not be the canonical identity-bearing name format.
+
+For example, `https://gateway.example/n/<principal-id>/notes/design?sha=<digest>` names a gateway serving the logical request. A verifying client checks the principal, signed binding, selectors, and resulting bytes. An ordinary browser relies on the gateway's presentation unless verification is provided there. The gateway host is not the owner identity.
+
+Retain the first-version path grammar used by the Concord proposal: structured ASCII segments matching `[A-Za-z0-9_-]{1,64}`, at most 16 segments, with case-sensitive comparison. Reject empty segments, dot segments, embedded separators, and alternate percent-encoded spellings at the API boundary. Display labels may be Unicode. These restrictions apply to our PoC paths, not to Upspin names in general.
+
+Keep selectors separate from paths and credentials. Define SHA-256 explicitly, reject duplicate or unknown selector parameters, and do not place bearer grants in URLs. Resolve the selected, verified binding to an immutable target before creating a recipe. Record that immutable target in the recipe, not a mutable name or gateway URL.
+
+The initial API still resolves current bindings; revision selectors remain proposed until historical resolution and retention are specified. This revision changes the comparison and naming direction, not the implementation claims of the identity prototype.
+
+**Revised direction:** URL syntax is a suitable container for owner-based names. Adopt identity-led resolution, use explicit selectors for revisions and byte integrity, and let discovered endpoints choose the transport. HTTPS is the first transport and gateway option, not a substitute for the logical namespace.
 
 [First Concord implementation](concord-v1.md) · [Operator Trees design](remote-operator-trees.md) · [Upspin comparison](operator-trees-vs-upspin.md)
