@@ -1,12 +1,14 @@
 # Remote Operator Trees
 
-A proposed first storage substrate for Ocean
+A proposed first storage substrate for Ocean, with Concord identity
+
+Revised after the Kopia, Upspin, and URL naming comparisons. The initial implementation includes the [Concord identity and authority service](concord-v1.md) and follows the [naming policy](urls-vs-upspin-naming.md).
 
 ## The idea
 
 An Operator Trees server stores both bytes and descriptions of how to produce bytes. A client can upload data, compose it into a recipe, and ask the server to return the result. The result can be cached, retrieved later, or rebuilt from its inputs.
 
-The server is the durable home for the data. A client needs credentials and object addresses, but no local database or permanent local copy. Two clients can work with the same stored objects. Local caching is optional.
+The server is the durable home for the data. A client needs its Concord device key, verified identity state, service locations, and object addresses, but no local object database or permanent local data copy. Two clients can work with the same stored objects. Local caching is optional.
 
 This first version tests one proposition: **a remote store can preserve information as either materialized bytes or a reproducible recipe, while presenting the same verified result to its clients.** It is a proposed design, not an implemented service.
 
@@ -27,7 +29,7 @@ This is the basic relationship we want to exercise before adding richer operator
 | Blob | An exact sequence of bytes | Never |
 | Recipe | An operation and its ordered input references | Never |
 | Evaluation record | A verified relationship between a recipe and its output blob | New records may be added |
-| Pin | A tenant's retention commitment for a blob or recipe | Explicitly created or removed |
+| Pin | A principal's retention commitment for a blob or recipe | Explicitly created or removed |
 | Named reference | A convenient name pointing to a pinned blob or recipe | Updated with a version check |
 
 Recipes form trees conceptually, but shared inputs make the stored structure a directed acyclic graph. References name already stored blobs or recipes. There are no embedded mutable names or URLs in a recipe.
@@ -62,11 +64,11 @@ Recipes use a deliberately restricted JSON array format:
 
 The angle-bracket values above are explanatory placeholders, not valid addresses. Actual recipes contain only these array shapes, the exact operation names, valid addresses, and integers. Canonical encoding is compact JSON with no whitespace or trailing newline, unescaped ASCII strings, and integers in decimal without leading zeros or exponent notation. The server rejects duplicate or extra fields by rejecting anything outside these shapes, canonicalizes valid input, and returns the resulting address. Clients use the same encoding to verify it.
 
-Inputs must already exist and be accessible to the caller when a recipe is accepted. The server checks the dependency graph and rejects cycles, unknown operators, and excessive depth or size. Operators cannot read a clock, use randomness, fetch a URL, access arbitrary files, or invoke uploaded code.
+Inputs must already exist and be authorized for recipe construction when a recipe is accepted. First-version recipes have one owner who controls every input; mixed-owner composition is deferred. The server checks the dependency graph and rejects cycles, unknown operators, and excessive depth or size. Operators cannot read a clock, use randomness, fetch a URL, access arbitrary files, or invoke uploaded code.
 
 ## The client and server contract
 
-All requests use HTTPS and a tenant-scoped bearer token. Addresses are identifiers, not credentials. The first deployment can have one user, but storage access, quotas, and job ownership are scoped to that user's tenant from the start.
+All requests use HTTPS and Concord proof-of-possession authentication. The first deployment supports at least Alice and Bob as separate principals, each with enrolled devices and provider-assigned quotas. Resource ownership, pins, names, and job authority are principal-scoped. Addresses are identifiers, not credentials. The [Concord specification](concord-v1.md) defines invitations, direct grants, revocation, and recovery. Internal tenant partitions are an implementation detail, not the identity model.
 
 The following paths define the proposed interface; an implementation should turn these rules into a versioned API schema.
 
@@ -88,15 +90,15 @@ An evaluation request supplies a recipe address, an optional expected output blo
 
 Blob reads do not silently launch computation. To rebuild an evicted result, submit its recipe again. Automatic selection among alternative recipes is a later extension; the first version records the relationships but lets the client choose the recipe explicitly.
 
-Creating a name requires an `If-None-Match: *` precondition. Replacing one requires the version returned as its ETag in `If-Match`. A stale update fails with `412 Precondition Failed`, allowing the client to read and decide again. Names are tenant-local conveniences; recipes always use immutable addresses.
+Creating a name requires an `If-None-Match: *` precondition. Replacing one requires the version returned as its ETag in `If-Match`. A stale update fails with `412 Precondition Failed`, allowing the client to read and decide again. Names are owner-principal-qualified signed bindings, not provider-account paths. The naming service verifies the writer's current authority and binding signature as well as the version precondition. Recipes always use immutable addresses. HTTPS gateway links are locators, not ownership credentials.
 
 ## What happens during evaluation
 
-1. Resolve and authorize the complete dependency graph. Temporarily retain its inputs for the job's lifetime.
+1. Resolve the complete dependency graph and check current Concord authority. A scoped evaluate grant may allow the service to use inputs without allowing the recipient to download them. Temporarily retain inputs for the job's lifetime.
 2. Reuse a verified cached result if it is still present; otherwise evaluate the required nodes, sharing repeated dependencies.
 3. Enforce limits on graph size, depth, active jobs, execution time, temporary storage, and output size. Stop work when a limit is reached.
 4. Write the result to temporary storage while hashing it. If an expected output address was supplied, compare it with the computed address.
-5. Only after success, atomically publish the complete blob and evaluation record. Return the output address and length.
+5. Recheck live grants and device authority before atomically publishing the complete blob and evaluation record with recipient access. Revoked jobs publish no new result. Return the output address and length.
 
 A partial upload or interrupted evaluation never becomes a readable blob. Upload hash mismatches and expected-result mismatches fail without publishing a successful record. Repeating the same upload is idempotent. Repeating an evaluation may create another job, but produces the same bytes and can reuse existing work.
 
@@ -106,7 +108,7 @@ The client can verify that downloaded bytes match their address. When it has not
 
 Every successful upload, recipe creation, and evaluation result has a server-reported staging expiry at least one hour in the future. This gives clients time to assemble recipes and create pins. Active jobs hold temporary leases on their dependencies and outputs until completion, after which the output receives its staging window.
 
-A successful pin means the server has durably recorded both the object and the commitment to retain it. Pinning a recipe atomically retains its recipe dependencies and source blobs. If anything is unavailable or the tenant's quota would be exceeded, pin creation fails without creating a partial commitment. Clients can instead pin a result blob when preserving the bytes alone is sufficient.
+A successful pin means the server has durably recorded both the object and the commitment to retain it. Pinning a recipe atomically retains its recipe dependencies and source blobs. If anything is unavailable or the principal's quota would be exceeded, pin creation fails without creating a partial commitment. Clients can instead pin a result blob when preserving the bytes alone is sufficient.
 
 A named reference owns a pin on its target's closure. Changing the name atomically retains the new closure before releasing the old reference-owned pin. Explicit pins remain independent, so clients can preserve older versions before moving a name. Mutable names alone do not provide an enduring history.
 
@@ -116,27 +118,35 @@ For the first deployment, durable means surviving a service restart on the same 
 
 ## Access and encryption
 
-This PoC trusts one remote provider to store data and execute the fixed operators. Tenant access checks apply to every operation and dependency, including cache hits. Knowing an address grants no access. There is no cross-tenant sharing or globally visible deduplication interface in this version.
+This PoC trusts one remote provider to store data and execute the fixed operators. Concord access checks apply to every operation and dependency, including cache hits. Knowing an address grants no access. Direct, recipient-bound grants permit sharing within this provider; transitive delegation and cross-provider execution are deferred. Internal deduplication never establishes ownership or permission. Shared computation retains owner-pinned inputs, while recipients may pin authorized results against their own quota.
 
 Clients can upload encrypted bytes as ordinary blobs. The server can retain and retrieve them without a decryption key. Operators see ciphertext in that case; a slice of ciphertext is not a slice of the original document. Structured operations on confidential plaintext would require client-side evaluation or a separately authorized execution environment.
 
-Concord identities, invitations, delegated capabilities, and key recovery can replace the initial token arrangement later. They are not prerequisites for testing remote storage and reconstruction.
+Concord identities, verified introductions, direct grants, device revocation, and recovery are prerequisites for this revised PoC. End-to-end recipient encryption, transitive delegation, and a distributed trust graph are later work. The first evaluator is explicitly trusted with plaintext, and identity signatures do not change that confidentiality boundary.
 
 ## A small implementation boundary
 
-Build one server with persistent blob storage, a metadata database, and a bounded evaluator for the three operators. Supply a thin command-line client that uploads, creates recipes, evaluates, downloads, pins, and changes references. Start with complete-object transfers; resumable uploads, range requests, and streaming results to clients can follow later.
+Build one deployment with separate identity/authority, naming, blob storage, and bounded-evaluation interfaces. They may share a process and durable database. Identity checkpoints and revocations must survive crashes and must not be garbage-collected as cached content. Supply a thin command-line client that uploads, creates recipes, evaluates, downloads, pins, and changes references. Start with complete-object transfers; resumable uploads, range requests, and streaming results to clients can follow later.
 
 This version needs no desktop UI, AI agent, peer discovery, arbitrary execution, or recipe optimizer. Its useful product is a remote service with observable storage, reconstruction, and retention behavior.
 
 The first demonstration should prove:
 
-- Client A uploads `ABCD` and `EFGH`, creates the concatenation and slice recipes, and pins the slice recipe.
-- Client B, using authorized credentials and no local object cache, evaluates the recipe and downloads `CDEF`; its locally computed hash matches the returned blob address.
+- Alice uploads `ABCD` and `EFGH`, creates the concatenation and slice recipes, and pins the slice recipe.
+- Bob, introduced and given an exact evaluate grant by Alice, evaluates the recipe with no local object cache and downloads `CDEF`; its locally computed hash matches the returned blob address. A third identity cannot obtain the result or inputs by knowing their hashes.
 - A second recipe, `concat/v1` over blobs `CD` and `EF`, produces the same output blob address, while keeping a different recipe address.
 - After output staging leases expire, evict unpinned materialized results through a test-only maintenance hook. Evaluating the pinned slice recipe still reconstructs `CDEF`.
 - A service restart preserves pinned data and named references. Competing name updates cannot silently overwrite one another.
 - Corrupt uploads, missing dependencies, unauthorized reads, invalid slices, and jobs exceeding their limits fail without exposing partial results.
 - Releasing a pin leaves shared dependencies intact while another pin needs them; after all leases expire and pins are removed, those objects become eligible for collection.
+
+## Lessons incorporated and validation added
+
+The [Kopia comparison](operator-trees-vs-kopia.md) motivates measuring materialization rather than assuming recipes save space. Before accepting a pin, expose logical dependency size and marginal retained bytes under the principal's quota. Benchmark a small slice of a large concatenation, including temporary storage and bytes read. No performance advantage is assumed.
+
+The [Upspin comparison](operator-trees-vs-upspin.md) motivates separate identity, naming, and storage contracts. Named bindings use conditional signed updates; a reconnecting client can initially re-read the current binding. A subscription API is deferred rather than implying watch support.
+
+In addition to the storage scenarios above, require the [Concord acceptance scenarios](concord-v1.md#acceptance-scenarios). Test corruption, missing dependencies, restart recovery, and reclamation racing with evaluation. A reachable hash is not proof that bytes remain recoverable.
 
 ## Decisions to revisit after the PoC
 

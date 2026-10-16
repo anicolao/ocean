@@ -1,5 +1,7 @@
 # Remote Operator Trees compared with Kopia
 
+Comparison baseline: this document evaluates the [original token-based proposal](https://github.com/anicolao/ocean/blob/bcfd49b13c1d9bd6e57d32736da3cc288379a2b9/design/remote-operator-trees.md). Its findings informed the [revised design](remote-operator-trees.md), [first Concord implementation](concord-v1.md), and [URL naming comparison](urls-vs-upspin-naming.md); statements about deferred identity describe that earlier baseline.
+
 Design comparison, 16 October 2026
 
 The [Remote Operator Trees proposal](remote-operator-trees.md) is an unimplemented storage and evaluation service. Kopia is an existing backup system with a reusable repository architecture. This comparison evaluates the proposed first version, not every capability imagined for Ocean, against Kopia's documented design. Recommendations and performance expectations below are design judgments, not benchmark results.
