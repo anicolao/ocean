@@ -68,7 +68,7 @@ Inputs must already exist and be authorized for recipe construction when a recip
 
 ## The client and server contract
 
-All requests use HTTPS and Concord proof-of-possession authentication. The first deployment supports at least Alice and Bob as separate principals, each with enrolled devices and provider-assigned quotas. Resource ownership, pins, names, and job authority are principal-scoped. Addresses are identifiers, not credentials. The [Concord specification](concord-v1.md) defines invitations, direct grants, revocation, and recovery. Internal tenant partitions are an implementation detail, not the identity model.
+All requests use HTTPS and Concord proof-of-possession authentication. The first deployment supports self-service storage for newly created principals, including Alice and Bob, each with authorized devices and provider-assigned quotas. Provider resource limits are separate from participation in Concord; self-hosting remains possible. Resource ownership, pins, names, and job authority are principal-scoped. Addresses are identifiers, not credentials. The [Concord specification](concord-v1.md) defines self-created identities, optional attestations, direct grants, revocation, and recovery. Internal tenant partitions are an implementation detail, not the identity model.
 
 The following paths define the proposed interface; an implementation should turn these rules into a versioned API schema.
 
@@ -122,7 +122,7 @@ This PoC trusts one remote provider to store data and execute the fixed operator
 
 Clients can upload encrypted bytes as ordinary blobs. The server can retain and retrieve them without a decryption key. Operators see ciphertext in that case; a slice of ciphertext is not a slice of the original document. Structured operations on confidential plaintext would require client-side evaluation or a separately authorized execution environment.
 
-Concord identities, verified introductions, direct grants, device revocation, and recovery are prerequisites for this revised PoC. End-to-end recipient encryption, transitive delegation, and a distributed trust graph are later work. The first evaluator is explicitly trusted with plaintext, and identity signatures do not change that confidentiality boundary.
+Support for self-created Concord identities, chosen presentations, optional attestations, direct grants, device revocation, and recovery is in scope for this revised PoC. No endorsement or introduction is required to create an identity or store one's own data. End-to-end recipient encryption, transitive delegation, and a distributed trust graph are later work. The first evaluator is explicitly trusted with plaintext, and identity signatures do not change that confidentiality boundary.
 
 ## A small implementation boundary
 
@@ -133,7 +133,7 @@ This version needs no desktop UI, AI agent, peer discovery, arbitrary execution,
 The first demonstration should prove:
 
 - Alice uploads `ABCD` and `EFGH`, creates the concatenation and slice recipes, and pins the slice recipe.
-- Bob, introduced and given an exact evaluate grant by Alice, evaluates the recipe with no local object cache and downloads `CDEF`; its locally computed hash matches the returned blob address. A third identity cannot obtain the result or inputs by knowing their hashes.
+- Bob, using his independently created identity and an exact evaluate grant from Alice, evaluates the recipe with no local object cache and downloads `CDEF`; its locally computed hash matches the returned blob address. A third identity cannot obtain the result or inputs by knowing their hashes.
 - A second recipe, `concat/v1` over blobs `CD` and `EF`, produces the same output blob address, while keeping a different recipe address.
 - After output staging leases expire, evict unpinned materialized results through a test-only maintenance hook. Evaluating the pinned slice recipe still reconstructs `CDEF`.
 - A service restart preserves pinned data and named references. Competing name updates cannot silently overwrite one another.

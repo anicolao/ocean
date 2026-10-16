@@ -44,7 +44,7 @@ The practical distinction is what the caller can express. Our recipe records “
 
 ## Cons and gaps in the Operator Trees design
 
-1. **It has no real person-to-person sharing model yet.** Tenant tokens do not define discovery, invitations, key rotation, or authority delegated between independently identified users. Upspin's user-qualified namespace and key lookup provide an existing model to study. [Upspin overview](https://upspin.io/doc/overview.html)
+1. **It has no real person-to-person sharing model yet.** Tenant tokens do not define discovery, attestations, key rotation, or authority delegated between independently identified users. Upspin's user-qualified namespace and key lookup provide an existing model to study. [Upspin overview](https://upspin.io/doc/overview.html)
 
 2. **It combines roles that may need different trust boundaries.** The first server stores data, resolves local names, authorizes access, and evaluates recipes. Separating these roles would make it easier to place private naming, bulk storage, and authorized computation with different operators. That is a design inference from Upspin's service decomposition, not a claim that decomposition alone makes a system secure.
 
@@ -68,7 +68,7 @@ The practical distinction is what the caller can express. Our recipe records “
 
 ## Cons and limits of using Upspin directly for Ocean
 
-1. **Its global key service is a dependency, not Concord's invitation-based trust model.** The documented ecosystem uses a central key server and describes a tamper-evident log. That offers a concrete discovery mechanism, but adopting it would be a distinct identity decision rather than implementing decentralized trust automatically. [Upspin key management](https://upspin.io/doc/security.html#key-management)
+1. **Its global key service is a dependency, not Concord's self-created identities and attestation-based trust model.** The documented ecosystem uses a central key server and describes a tamper-evident log. That offers a concrete discovery mechanism, but adopting it would be a distinct identity decision rather than implementing decentralized trust automatically. [Upspin key management](https://upspin.io/doc/security.html#key-management)
 
 2. **Content privacy does not hide all metadata.** The directory service knows plaintext paths and sharing information. Choosing where to run it is therefore a privacy decision. Ocean should not equate encrypted payloads with an opaque object graph. [Upspin security](https://upspin.io/doc/security.html)
 
