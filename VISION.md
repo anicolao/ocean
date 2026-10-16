@@ -131,7 +131,7 @@ Every participant in Ocean possesses a persistent cryptographic identity, indepe
 
 Identity is established through locally controlled cryptographic credentials, with explicit mechanisms for key rotation, recovery, and revocation.
 
-Trust relationships form a decentralized, invitation-based social graph. Participants establish relationships and delegate authority directly rather than depending on a universal identity provider.
+Anyone can create an identity and begin using their own or a willing provider's storage without an invitation or endorsement. Participants choose which identity claims and evidence to disclose; others may sign attestations vouching for specific claims. These attestations form a decentralized trust graph that observers interpret for themselves, separately from grants of authority over information and operations.
 
 Access to information and authority to modify it are distinct.
 
@@ -212,7 +212,7 @@ The Ocean vision synthesizes several architectural traditions and earlier concep
 
 | Concept or system | Relationship to Ocean |
 |---|---|
-| **Concord** | Sovereign cryptographic identities, encrypted decentralized storage, invitation-based trust, and distributed access control. |
+| **Concord** | Self-created cryptographic identities, chosen disclosures, signed identity attestations, encrypted decentralized storage, and distributed access control. |
 | **Operator Trees** | Composable computation, content-addressed representations, alternative reconstruction recipes, and cost-aware evaluation. |
 | **vOS** | Persistent functional state, operation histories, specification-defined behavior, correctness refinement, and dependency-aware reevaluation. |
 | **Composable GUI concept** | Independently replaceable input transformations, semantic intentions, reducers, and presentation operators. |
