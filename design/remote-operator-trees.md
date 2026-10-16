@@ -146,7 +146,7 @@ The [Kopia comparison](operator-trees-vs-kopia.md) motivates measuring materiali
 
 The [Upspin comparison](operator-trees-vs-upspin.md) motivates separate identity, naming, and storage contracts. Named bindings use conditional signed updates; a reconnecting client can initially re-read the current binding. A subscription API is deferred rather than implying watch support.
 
-In addition to the storage scenarios above, require the [Concord acceptance scenarios](concord-v1.md#acceptance-scenarios). Test corruption, missing dependencies, restart recovery, and reclamation racing with evaluation. A reachable hash is not proof that bytes remain recoverable.
+In addition to the storage scenarios above, require the [Concord acceptance scenarios](concord-v1.md#acceptance-scenarios) and [protocol failure tests](concord-protocol-requirements.md#required-failure-tests). Test corruption, missing dependencies, restart recovery, and reclamation racing with evaluation. A reachable hash is not proof that bytes remain recoverable.
 
 ## Decisions to revisit after the PoC
 
